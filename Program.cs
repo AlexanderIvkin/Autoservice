@@ -38,7 +38,7 @@ namespace Autoservice
         {
             Queue<Car> clients = new Queue<Car>();
 
-            for (int i = 0; i < clients.Count; i++)
+            for (int i = 0; i < clientsCount; i++)
             {
                 clients.Enqueue(_carFactory.Create());
             }
@@ -49,10 +49,10 @@ namespace Autoservice
 
     class Autoservice
     {
-        private const int FixedPenalty = 100;
-        private const int MaxPartsCountInCar = 5;
         private const int CommandExit = 0;
 
+        private int _fixedPenalty = 100;
+        private int _repareCost = 200;
         private int _money;
         private Storage _storage;
         private Queue<Car> _carsQueue;
@@ -68,47 +68,65 @@ namespace Autoservice
 
         public void Execute()
         {
+            int clientCount = 0;
+
             while (_carsQueue.Count > 0)
             {
                 bool tryRepare = true;
+                bool isRepareBegan = false;
 
-                ShowInfo();
-
+                clientCount++;
                 _currentCar = _carsQueue.Dequeue();
-                _maxBrokenParts = _currentCar.GetBrokenParts.Count;
+                _maxBrokenParts = _currentCar.GetBrokenPartsCount();
 
-                while (_currentCar.GetBrokenParts.Count > 0 && tryRepare)
+                while (_currentCar.GetBrokenPartsCount() > 0 && tryRepare)
                 {
-                    _currentCar.ShowParts();
+                    Console.Clear();
+                    ShowInfo();
+                    _currentCar.ShowParts(clientCount);
 
-                    Console.WriteLine($"\nТекущий штраф за отказ ={PenaltyCalculate(_maxBrokenParts)}" +
+                    Console.WriteLine($"\nТекущий штраф за отказ = {PenaltyCalculate(_maxBrokenParts, isRepareBegan)}" +
                         $"\nЧтобы начать поиск детали на складе, введите её номер." +
-                        $"\nЧтобы отказаться от ремонта введите цифру{CommandExit}");
+                        $"\nЧтобы отказаться от ремонта введите цифру {CommandExit}");
 
                     int userInput = GetIntegerPositiveUserInput();
 
-                    if (userInput != 0 && _storage.TryGetPart(_currentCar.GetBrokenParts[userInput - 1].Name, out Part part))
+                    if (userInput != 0)
                     {
-                        int latestBrokenPartsCount = _currentCar.GetBrokenParts.Count;
-                        _currentCar.SetNewPart(userInput - 1, part);
+                        isRepareBegan = true;
 
-                        if (IsRepare(latestBrokenPartsCount))
+                        if (_storage.TryGetPart(_currentCar.GetParts()[userInput - 1].Name, out Part part))
                         {
-                            _money += part.Price;
+                            int latestBrokenPartsCount = _currentCar.GetBrokenPartsCount();
+
+                            _currentCar.SetNewPart(userInput - 1, part);
+
+                            if (IsRepare(latestBrokenPartsCount))
+                            {
+                                _money += part.Price + _repareCost;
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("Такой детали нет на складе. Можете попробовать починить другую, чтобы уменьшить итоговый штраф, Нажмите что-нибудь...");
+                            Console.ReadKey(false);
                         }
                     }
                     else
                     {
+                        Console.WriteLine("Отказ");
                         tryRepare = false;
-                        _money -= PenaltyCalculate(_maxBrokenParts);
+                        _money -= PenaltyCalculate(_maxBrokenParts, isRepareBegan);
                     }
                 }
             }
+
+            Console.WriteLine("Рабочий день закончен.");
         }
 
         private bool IsRepare(int previousBrokenPartsCount)
         {
-            return _currentCar.GetBrokenParts.Count < previousBrokenPartsCount;
+            return _currentCar.GetBrokenPartsCount() < previousBrokenPartsCount;
         }
 
         private int GetIntegerPositiveUserInput()
@@ -119,18 +137,22 @@ namespace Autoservice
             {
                 Console.Write("Ваш выбор: ");
             }
-            while (int.TryParse(Console.ReadLine(), out userInput) == false || userInput < 0 || userInput > MaxPartsCountInCar);
+            while (int.TryParse(Console.ReadLine(), out userInput) == false || userInput < 0 || userInput > _currentCar.GetParts().Count);
 
             return userInput;
         }
 
-        private int PenaltyCalculate(int maxBrokenParts)
+        private int PenaltyCalculate(int maxBrokenParts, bool isStartRepare)
         {
-            int finalPenalty = FixedPenalty;
+            int finalPenalty = _fixedPenalty;
 
-            if (_currentCar.GetBrokenParts.Count % maxBrokenParts != 0)
+            if (_currentCar.GetBrokenPartsCount() % maxBrokenParts != 0)
             {
-                finalPenalty = FixedPenalty * (_currentCar.GetBrokenParts.Count % maxBrokenParts);
+                finalPenalty = _fixedPenalty * (_currentCar.GetBrokenPartsCount() % maxBrokenParts);
+            }
+            else if (isStartRepare)
+            {
+                finalPenalty = _fixedPenalty * _currentCar.GetBrokenPartsCount();
             }
 
             return finalPenalty;
@@ -139,7 +161,8 @@ namespace Autoservice
         private void ShowInfo()
         {
             Console.WriteLine($"Денег на счету: {_money}\n" +
-                $"Клиентов в очереди: {_carsQueue.Count}\n");
+                $"Клиентов в очереди: {_carsQueue.Count}\n" +
+                $"Деталей на складе: {_storage.GetPartsCount}\n");
         }
     }
 
@@ -174,6 +197,8 @@ namespace Autoservice
             _parts = parts;
         }
 
+        public int GetPartsCount => _parts.Count;
+
         public bool TryGetPart(string requiredName, out Part newPart)
         {
             bool isFind = false;
@@ -187,7 +212,13 @@ namespace Autoservice
                     {
                         newPart = part;
                         isFind = true;
+
                     }
+                }
+
+                if (isFind)
+                {
+                    _parts.Remove(newPart);
                 }
             }
 
@@ -208,9 +239,9 @@ namespace Autoservice
         {
             int basicBrokenPartChance = 100;
             List<string> possibleParts = _partFactory.GetPartsNames;
-            List<Part> parts = new List<Part>(possibleParts.Count);
+            List<Part> parts = new List<Part>();
 
-            for (int i = 0; i < parts.Count; i++)
+            for (int i = 0; i < possibleParts.Count; i++)
             {
                 int currentBrokenPartChance = basicBrokenPartChance / (i + 1);
 
@@ -230,18 +261,36 @@ namespace Autoservice
             _parts = parts;
         }
 
-        public List<Part> GetBrokenParts => _parts.Where(part => part.IsIntact == false).ToList();
+        public int GetBrokenPartsCount()
+        {
+            int count = 0;
+
+            foreach (Part part in _parts)
+            {
+                if (part.IsIntact != true)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        public List<Part> GetParts()
+        {
+            return _parts.ToList();
+        }
 
         public void SetNewPart(int index, Part part)
         {
             _parts[index] = part;
         }
 
-        public void ShowParts()
+        public void ShowParts(int clientCount)
         {
             int count = 1;
 
-            Console.WriteLine("\nЗаказ-наряд:\n");
+            Console.WriteLine($"Заказ-наряд  {clientCount}:\n");
 
             foreach (Part part in _parts)
             {
