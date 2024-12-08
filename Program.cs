@@ -76,9 +76,9 @@ namespace Autoservice
                 ShowInfo();
 
                 _currentCar = _carsQueue.Dequeue();
-                _maxBrokenParts = _currentCar.GetBrokenParts().Count;
+                _maxBrokenParts = _currentCar.GetBrokenParts.Count;
 
-                while (_currentCar.GetBrokenParts().Count > 0 && tryRepare)
+                while (_currentCar.GetBrokenParts.Count > 0 && tryRepare)
                 {
                     _currentCar.ShowParts();
 
@@ -88,9 +88,9 @@ namespace Autoservice
 
                     int userInput = GetIntegerPositiveUserInput();
 
-                    if (userInput != 0 && _storage.TryGetPart(_currentCar.GetBrokenParts()[userInput - 1].Name, out Part part))
+                    if (userInput != 0 && _storage.TryGetPart(_currentCar.GetBrokenParts[userInput - 1].Name, out Part part))
                     {
-                        int latestBrokenPartsCount = _currentCar.GetBrokenParts().Count;
+                        int latestBrokenPartsCount = _currentCar.GetBrokenParts.Count;
                         _currentCar.SetNewPart(userInput - 1, part);
 
                         if (IsRepare(latestBrokenPartsCount))
@@ -109,7 +109,7 @@ namespace Autoservice
 
         private bool IsRepare(int previousBrokenPartsCount)
         {
-            return _currentCar.GetBrokenParts().Count < previousBrokenPartsCount;
+            return _currentCar.GetBrokenParts.Count < previousBrokenPartsCount;
         }
 
         private int GetIntegerPositiveUserInput()
@@ -129,9 +129,9 @@ namespace Autoservice
         {
             int finalPenalty = FixedPenalty;
 
-            if (_currentCar.GetBrokenParts().Count % maxBrokenParts != 0)
+            if (_currentCar.GetBrokenParts.Count % maxBrokenParts != 0)
             {
-                finalPenalty = FixedPenalty * (_currentCar.GetBrokenParts().Count % maxBrokenParts);
+                finalPenalty = FixedPenalty * (_currentCar.GetBrokenParts.Count % maxBrokenParts);
             }
 
             return finalPenalty;
@@ -231,6 +231,8 @@ namespace Autoservice
             _parts = parts;
         }
 
+        public List<Part> GetBrokenParts => _parts.Where(part => part.IsIntact == false).ToList();
+
         public void SetNewPart(int index, Part part)
         {
             _parts[index] = part;
@@ -249,10 +251,6 @@ namespace Autoservice
             }
         }
 
-        public List<Part> GetBrokenParts()
-        {
-            return _parts.Where(part => part.IsIntact == false).ToList();
-        }
     }
 
     class PartFactory
