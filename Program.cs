@@ -36,7 +36,7 @@ namespace Autoservice
 
         public Autoservice Create(int money, int storageSize, int clientsCount)
         {
-            Queue<Car> clients = new Queue<Car>(clientsCount);
+            Queue<Car> clients = new Queue<Car>();
 
             for (int i = 0; i < clients.Count; i++)
             {
@@ -64,7 +64,6 @@ namespace Autoservice
             _money = money;
             _storage = storage;
             _carsQueue = carsQueue;
-
         }
 
         public void Execute()
