@@ -211,11 +211,11 @@ namespace Autoservice
             List<string> possibleParts = _partFactory.GetPartsNames;
             List<Part> parts = new List<Part>(possibleParts.Count);
 
-            for (int i = 1; i <= parts.Count; i++)
+            for (int i = 0; i < parts.Count; i++)
             {
-                int currentBrokenPartChance = basicBrokenPartChance / i;
+                int currentBrokenPartChance = basicBrokenPartChance / (i + 1);
 
-                parts.Add(_partFactory.CreatePart(possibleParts[i - 1], currentBrokenPartChance > UserUtills.GenerateLimitedPositiveNumber(basicBrokenPartChance)));
+                parts.Add(_partFactory.CreatePart(possibleParts[i], currentBrokenPartChance > UserUtills.GenerateLimitedPositiveNumber(basicBrokenPartChance)));
             }
 
             return new Car(parts);
