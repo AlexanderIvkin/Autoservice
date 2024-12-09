@@ -129,7 +129,7 @@ namespace Autoservice
             return currentBrokenPartsCount < previousBrokenPartsCount;
         }
 
-        private int PenaltyCalculate(int maxBrokenPartsCount, int currentBrokenPartsCount, bool isStartRepare)
+        private int PenaltyCalculate(int maxBrokenPartsCount, int currentBrokenPartsCount, bool isRepareBegan)
         {
             int finalPenalty = _fixedPenalty;
 
@@ -137,7 +137,7 @@ namespace Autoservice
             {
                 finalPenalty = _fixedPenalty * (currentBrokenPartsCount % maxBrokenPartsCount);
             }
-            else if (isStartRepare)
+            else if (isRepareBegan)
             {
                 finalPenalty = _fixedPenalty * currentBrokenPartsCount;
             }
