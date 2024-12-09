@@ -11,30 +11,30 @@ namespace Autoservice
             PartFactory partFactory = new PartFactory();
             StorageFactory storageFactory = new StorageFactory(partFactory);
             CarFactory carFactory = new CarFactory(partFactory);
-            AutoserviceFactory autoserviceFactory = new AutoserviceFactory(storageFactory, carFactory);
+            AutoServiceFactory autoServiceFactory = new AutoServiceFactory(storageFactory, carFactory);
 
             int money = 1000;
             int storageSize = 25;
             int clientsCount = 5;
 
-            Autoservice autoservice = autoserviceFactory.Create(money, storageSize, clientsCount);
+            AutoService autoService = autoServiceFactory.Create(money, storageSize, clientsCount);
 
-            autoservice.Execute();
+            autoService.Execute();
         }
     }
 
-    class AutoserviceFactory
+    class AutoServiceFactory
     {
         private StorageFactory _storageFactory;
         private CarFactory _carFactory;
 
-        public AutoserviceFactory(StorageFactory storageFactory, CarFactory carFactory)
+        public AutoServiceFactory(StorageFactory storageFactory, CarFactory carFactory)
         {
             _storageFactory = storageFactory;
             _carFactory = carFactory;
         }
 
-        public Autoservice Create(int money, int storageSize, int clientsCount)
+        public AutoService Create(int money, int storageSize, int clientsCount)
         {
             Queue<Car> clients = new Queue<Car>();
 
@@ -43,11 +43,11 @@ namespace Autoservice
                 clients.Enqueue(_carFactory.Create());
             }
 
-            return new Autoservice(money, _storageFactory.Create(storageSize), clients);
+            return new AutoService(money, _storageFactory.Create(storageSize), clients);
         }
     }
 
-    class Autoservice
+    class AutoService
     {
         private const int CommandExit = 0;
 
@@ -56,10 +56,8 @@ namespace Autoservice
         private int _money;
         private Storage _storage;
         private Queue<Car> _carsQueue;
-        private Car _currentCar;
-        private int _maxBrokenParts;
 
-        public Autoservice(int money, Storage storage, Queue<Car> carsQueue)
+        public AutoService(int money, Storage storage, Queue<Car> carsQueue)
         {
             _money = money;
             _storage = storage;
@@ -69,39 +67,41 @@ namespace Autoservice
         public void Execute()
         {
             int clientCount = 0;
+            Car currentCar;
 
             while (_carsQueue.Count > 0)
             {
+                int maxBrokenPartsCount;
                 bool tryRepare = true;
                 bool isRepareBegan = false;
 
                 clientCount++;
-                _currentCar = _carsQueue.Dequeue();
-                _maxBrokenParts = _currentCar.GetBrokenPartsCount();
+                currentCar = _carsQueue.Dequeue();
+                maxBrokenPartsCount = currentCar.GetBrokenPartsCount();
 
-                while (_currentCar.GetBrokenPartsCount() > 0 && tryRepare)
+                while (currentCar.GetBrokenPartsCount() > 0 && tryRepare)
                 {
                     Console.Clear();
                     ShowInfo();
-                    _currentCar.ShowParts(clientCount);
+                    currentCar.ShowParts(clientCount);
 
-                    Console.WriteLine($"\nТекущий штраф за отказ = {PenaltyCalculate(_maxBrokenParts, isRepareBegan)}" +
+                    Console.WriteLine($"\nТекущий штраф за отказ = {PenaltyCalculate(maxBrokenPartsCount, currentCar.GetBrokenPartsCount(), isRepareBegan)}" +
                         $"\nЧтобы начать поиск детали на складе, введите её номер." +
                         $"\nЧтобы отказаться от ремонта введите цифру {CommandExit}");
 
-                    int userInput = GetIntegerPositiveUserInput();
+                    int userInput = UserUtills.GetIntegerLimitedPositiveUserInput(currentCar.GetParts().Count);
 
                     if (userInput != 0)
                     {
                         isRepareBegan = true;
 
-                        if (_storage.TryGetPart(_currentCar.GetParts()[userInput - 1].Name, out Part part))
+                        if (_storage.TryGetPart(currentCar.GetParts()[userInput - 1].Name, out Part part))
                         {
-                            int latestBrokenPartsCount = _currentCar.GetBrokenPartsCount();
+                            int latestBrokenPartsCount = currentCar.GetBrokenPartsCount();
 
-                            _currentCar.SetNewPart(userInput - 1, part);
+                            currentCar.SetNewPart(userInput - 1, part);
 
-                            if (IsRepare(latestBrokenPartsCount))
+                            if (IsRepare(latestBrokenPartsCount, currentCar.GetBrokenPartsCount()))
                             {
                                 _money += part.Price + _repareCost;
                             }
@@ -116,7 +116,7 @@ namespace Autoservice
                     {
                         Console.WriteLine("Отказ");
                         tryRepare = false;
-                        _money -= PenaltyCalculate(_maxBrokenParts, isRepareBegan);
+                        _money -= PenaltyCalculate(maxBrokenPartsCount, currentCar.GetBrokenPartsCount(), isRepareBegan);
                     }
                 }
             }
@@ -124,35 +124,22 @@ namespace Autoservice
             Console.WriteLine("Рабочий день закончен.");
         }
 
-        private bool IsRepare(int previousBrokenPartsCount)
+        private bool IsRepare(int previousBrokenPartsCount, int currentBrokenPartsCount)
         {
-            return _currentCar.GetBrokenPartsCount() < previousBrokenPartsCount;
+            return currentBrokenPartsCount < previousBrokenPartsCount;
         }
 
-        private int GetIntegerPositiveUserInput()
-        {
-            int userInput;
-
-            do
-            {
-                Console.Write("Ваш выбор: ");
-            }
-            while (int.TryParse(Console.ReadLine(), out userInput) == false || userInput < 0 || userInput > _currentCar.GetParts().Count);
-
-            return userInput;
-        }
-
-        private int PenaltyCalculate(int maxBrokenParts, bool isStartRepare)
+        private int PenaltyCalculate(int maxBrokenPartsCount, int currentBrokenPartsCount, bool isStartRepare)
         {
             int finalPenalty = _fixedPenalty;
 
-            if (_currentCar.GetBrokenPartsCount() % maxBrokenParts != 0)
+            if (currentBrokenPartsCount % maxBrokenPartsCount != 0)
             {
-                finalPenalty = _fixedPenalty * (_currentCar.GetBrokenPartsCount() % maxBrokenParts);
+                finalPenalty = _fixedPenalty * (currentBrokenPartsCount % maxBrokenPartsCount);
             }
             else if (isStartRepare)
             {
-                finalPenalty = _fixedPenalty * _currentCar.GetBrokenPartsCount();
+                finalPenalty = _fixedPenalty * currentBrokenPartsCount;
             }
 
             return finalPenalty;
@@ -245,7 +232,7 @@ namespace Autoservice
             {
                 int currentBrokenPartChance = basicBrokenPartChance / (i + 1);
 
-                parts.Add(_partFactory.CreatePart(possibleParts[i], currentBrokenPartChance > UserUtills.GenerateLimitedPositiveNumber(basicBrokenPartChance)));
+                parts.Add(_partFactory.Create(possibleParts[i], currentBrokenPartChance > UserUtills.GenerateLimitedPositiveNumber(basicBrokenPartChance)));
             }
 
             return new Car(parts);
@@ -298,7 +285,6 @@ namespace Autoservice
                 count++;
             }
         }
-
     }
 
     class PartFactory
@@ -310,7 +296,7 @@ namespace Autoservice
 
         public List<string> GetPartsNames => _partsNames.ToList();
 
-        public Part CreatePart(string name, bool isIntact)
+        public Part Create(string name, bool isIntact)
         {
             return new Part(name, GeneratePrice(), isIntact);
         }
@@ -357,6 +343,19 @@ namespace Autoservice
         public static int GenerateLimitedNumber(int minValueInclusive, int maxValueExclusive)
         {
             return s_random.Next(minValueInclusive, maxValueExclusive);
+        }
+
+        public static int GetIntegerLimitedPositiveUserInput(int maxValue)
+        {
+            int userInput;
+
+            do
+            {
+                Console.Write("Ваш выбор: ");
+            }
+            while (int.TryParse(Console.ReadLine(), out userInput) == false || userInput < 0 || userInput > maxValue);
+
+            return userInput;
         }
     }
 }
