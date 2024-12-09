@@ -8,7 +8,11 @@ namespace Autoservice
     {
         static void Main(string[] args)
         {
-            PartFactory partFactory = new PartFactory();
+            List<string> possibleNames = new List<string>()
+            {
+            "Двигатель", "Колесо", "Коробка Передач", "Стёкла", "Кузов"
+            };
+            PartFactory partFactory = new PartFactory(possibleNames);
             StorageFactory storageFactory = new StorageFactory(partFactory);
             CarFactory carFactory = new CarFactory(partFactory);
             AutoServiceFactory autoServiceFactory = new AutoServiceFactory(storageFactory, carFactory);
@@ -72,20 +76,19 @@ namespace Autoservice
             while (_carsQueue.Count > 0)
             {
                 int maxBrokenPartsCount;
-                bool tryRepare = true;
-                bool isRepareBegan = false;
+                bool isRepareStopped = false;
+                bool isRepareStarted = false;
 
                 clientCount++;
                 currentCar = _carsQueue.Dequeue();
                 maxBrokenPartsCount = currentCar.GetBrokenPartsCount();
 
-                while (currentCar.GetBrokenPartsCount() > 0 && tryRepare)
+                while (currentCar.GetBrokenPartsCount() > 0 && isRepareStopped != true)
                 {
                     Console.Clear();
                     ShowInfo();
                     currentCar.ShowParts(clientCount);
-
-                    Console.WriteLine($"\nТекущий штраф за отказ = {PenaltyCalculate(maxBrokenPartsCount, currentCar.GetBrokenPartsCount(), isRepareBegan)}" +
+                    Console.WriteLine($"\nТекущий штраф за отказ = {PenaltyCalculate(maxBrokenPartsCount, currentCar.GetBrokenPartsCount(), isRepareStarted)}" +
                         $"\nЧтобы начать поиск детали на складе, введите её номер." +
                         $"\nЧтобы отказаться от ремонта введите цифру {CommandExit}");
 
@@ -93,7 +96,7 @@ namespace Autoservice
 
                     if (userInput != 0)
                     {
-                        isRepareBegan = true;
+                        isRepareStarted = true;
 
                         if (_storage.TryGetPart(currentCar.GetParts()[userInput - 1].Name, out Part part))
                         {
@@ -115,8 +118,8 @@ namespace Autoservice
                     else
                     {
                         Console.WriteLine("Отказ");
-                        tryRepare = false;
-                        _money -= PenaltyCalculate(maxBrokenPartsCount, currentCar.GetBrokenPartsCount(), isRepareBegan);
+                        isRepareStopped = true;
+                        _money -= PenaltyCalculate(maxBrokenPartsCount, currentCar.GetBrokenPartsCount(), isRepareStarted);
                     }
                 }
             }
@@ -129,7 +132,7 @@ namespace Autoservice
             return currentBrokenPartsCount < previousBrokenPartsCount;
         }
 
-        private int PenaltyCalculate(int maxBrokenPartsCount, int currentBrokenPartsCount, bool isRepareBegan)
+        private int PenaltyCalculate(int maxBrokenPartsCount, int currentBrokenPartsCount, bool isRepareStarted)
         {
             int finalPenalty = _fixedPenalty;
 
@@ -137,7 +140,7 @@ namespace Autoservice
             {
                 finalPenalty = _fixedPenalty * (currentBrokenPartsCount % maxBrokenPartsCount);
             }
-            else if (isRepareBegan)
+            else if (isRepareStarted)
             {
                 finalPenalty = _fixedPenalty * currentBrokenPartsCount;
             }
@@ -193,23 +196,31 @@ namespace Autoservice
 
             if (_parts.Count > 0)
             {
-                foreach (Part part in _parts)
-                {
-                    if (part.Name == requiredName)
-                    {
-                        newPart = part;
-                        isFind = true;
-
-                    }
-                }
-
-                if (isFind)
+                if (TryFindRequiredPart(requiredName, out newPart))
                 {
                     _parts.Remove(newPart);
+                    isFind = true;
                 }
             }
 
             return isFind;
+        }
+
+        private bool TryFindRequiredPart(string requiredName, out Part requiredPart)
+        {
+            requiredPart = null;
+
+            foreach (Part part in _parts)
+            {
+                if (part.Name == requiredName)
+                {
+                    requiredPart = part;
+
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 
@@ -289,10 +300,12 @@ namespace Autoservice
 
     class PartFactory
     {
-        private List<string> _partsNames = new List<string>()
+        private List<string> _partsNames;
+
+        public PartFactory(List<string> possibleNames)
         {
-            "Двигатель", "Колесо", "Коробка Передач", "Стёкла", "Кузов"
-        };
+            _partsNames = possibleNames;
+        }
 
         public List<string> GetPartsNames => _partsNames.ToList();
 
